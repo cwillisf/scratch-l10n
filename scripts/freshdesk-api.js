@@ -76,12 +76,15 @@ class FreshdeskApi {
     }
 
     /**
-     * Checks the status of a response. If status is not ok, or the body is not json raise exception
-     * @param {fetch.Response} res The response object
-     * @returns {fetch.Response} the response if it is ok
+     * Issue an API request to Freshdesk and check the result.
+     * If status is not ok, or the body is not json, raise exception.
+     * @param {fetch.RequestInfo} url The request to send
+     * @param {fetch.RequestInit} [init] The options to send with the request
+     * @returns {Promise<fetch.Response>} A promise that resolves to the response from Freshdesk iff it is ok
      * @throws {ScratchFreshdeskError} if the response is not ok
      */
-    checkStatus (res) {
+    async checkFetch (url, init) {
+        const res = await fetch(url, init);
         if (res.ok) {
             if (res.headers.get('content-type')?.startsWith('application/json')) {
                 return res;
@@ -89,7 +92,7 @@ class FreshdeskApi {
             throw new Error(`response not json: ${res.headers.get('content-type')}`);
         }
         /** @type {ScratchFreshdeskError} */
-        let err = new Error(`response ${res.statusText}`);
+        let err = new Error(`response ${res.statusText} from ${url}`);
         err.code = res.status;
         if (res.status === 429) {
             err.retryAfter = res.headers.get('Retry-After');
@@ -103,8 +106,8 @@ class FreshdeskApi {
      * @throws {ScratchFreshdeskError} if the response is not ok
      */
     async listCategories () {
-        return this.checkStatus(
-            await fetch(`${this.baseUrl}/api/v2/solutions/categories`, {headers: this.defaultHeaders})
+        return (
+            await this.checkFetch(`${this.baseUrl}/api/v2/solutions/categories`, {headers: this.defaultHeaders})
         ).json();
     }
 
@@ -114,8 +117,8 @@ class FreshdeskApi {
      * @throws {ScratchFreshdeskError} if the response is not ok
      */
     async listFolders (category) {
-        return this.checkStatus(
-            await fetch(
+        return (
+            await this.checkFetch(
                 `${this.baseUrl}/api/v2/solutions/categories/${category.id}/folders`,
                 {headers: this.defaultHeaders}
             )
@@ -128,8 +131,8 @@ class FreshdeskApi {
      * @throws {ScratchFreshdeskError} if the response is not ok
      */
     async listArticles (folder) {
-        return this.checkStatus(
-            await fetch(
+        return (
+            await this.checkFetch(
                 `${this.baseUrl}/api/v2/solutions/folders/${folder.id}/articles`,
                 {headers: this.defaultHeaders}
             )
@@ -149,26 +152,24 @@ class FreshdeskApi {
             process.stdout.write(`Rate limited, skipping id: ${id} for ${locale}\n`);
             return -1;
         }
-        return fetch(
+        return this.checkFetch(
             `${this.baseUrl}/api/v2/solutions/categories/${id}/${locale}`,
             {
                 method: 'put',
                 body: JSON.stringify(body),
                 headers: this.defaultHeaders
             })
-            .then(this.checkStatus)
             .then(res => res.json())
             .catch((err) => {
                 if (err.code === 404) {
                     // not found, try create instead
-                    return fetch(
+                    return this.checkFetch(
                         `${this.baseUrl}/api/v2/solutions/categories/${id}/${locale}`,
                         {
                             method: 'post',
                             body: JSON.stringify(body),
                             headers: this.defaultHeaders
                         })
-                        .then(this.checkStatus)
                         .then(res => res.json());
                 }
                 if (err.code === 429) {
@@ -192,26 +193,24 @@ class FreshdeskApi {
             process.stdout.write(`Rate limited, skipping id: ${id} for ${locale}\n`);
             return -1;
         }
-        return fetch(
+        return this.checkFetch(
             `${this.baseUrl}/api/v2/solutions/folders/${id}/${locale}`,
             {
                 method: 'put',
                 body: JSON.stringify(body),
                 headers: this.defaultHeaders
             })
-            .then(this.checkStatus)
             .then(res => res.json())
             .catch((err) => {
                 if (err.code === 404) {
                     // not found, try create instead
-                    return fetch(
+                    return this.checkFetch(
                         `${this.baseUrl}/api/v2/solutions/folders/${id}/${locale}`,
                         {
                             method: 'post',
                             body: JSON.stringify(body),
                             headers: this.defaultHeaders
                         })
-                        .then(this.checkStatus)
                         .then(res => res.json());
                 }
                 if (err.code === 429) {
@@ -235,26 +234,24 @@ class FreshdeskApi {
             process.stdout.write(`Rate limited, skipping id: ${id} for ${locale}\n`);
             return -1;
         }
-        return fetch(
+        return this.checkFetch(
             `${this.baseUrl}/api/v2/solutions/articles/${id}/${locale}`,
             {
                 method: 'put',
                 body: JSON.stringify(body),
                 headers: this.defaultHeaders
             })
-            .then(this.checkStatus)
             .then(res => res.json())
             .catch((err) => {
                 if (err.code === 404) {
                     // not found, try create instead
-                    return fetch(
+                    return this.checkFetch(
                         `${this.baseUrl}/api/v2/solutions/articles/${id}/${locale}`,
                         {
                             method: 'post',
                             body: JSON.stringify(body),
                             headers: this.defaultHeaders
                         })
-                        .then(this.checkStatus)
                         .then(res => res.json());
                 }
                 if (err.code === 429) {
