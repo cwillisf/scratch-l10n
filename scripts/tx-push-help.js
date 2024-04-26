@@ -25,7 +25,7 @@ if (!process.env.TX_TOKEN || !process.env.FRESHDESK_TOKEN || args.length > 0) {
 
 import FreshdeskApi from './freshdesk-api.js';
 
-const FD = new FreshdeskApi('https://mitscratch.freshdesk.com', process.env.FRESHDESK_TOKEN);
+const freshdesk = new FreshdeskApi('https://mitscratch.freshdesk.com', process.env.FRESHDESK_TOKEN);
 const TX_PROJECT = 'scratch-help';
 
 const categoryNames = {};
@@ -42,6 +42,12 @@ const makeTxId = item => {
     return `${item.name.replace(/[ /]/g, '').slice(0, 30)}_${item.id}`;
 };
 
+/**
+ * @param {string} name Transifex resource slug (like 'blocks')
+ * @param {object} articles Articles to push to Transifex
+ * @param {string} type Type of resource (like 'STRUCTURED_JSON')
+ * @returns {Promise} Promise for completion
+ */
 const txPushResource = async (name, articles, type) => {
     const resourceData = {
         slug: name,
@@ -72,19 +78,19 @@ const txPushResource = async (name, articles, type) => {
 
 /**
  * get a flattened list of folders
- * @param  {category}  categories array of categories the folders belong to
- * @return {Promise}            flattened list of folders
+ * @param  {FreshdeskApi.FreshdeskCategory[]}  categories array of categories the folders belong to
+ * @return {Promise<FreshdeskApi.FreshdeskFolder[]>}            flattened list of folders
  */
 const getFolders = async (categories) => {
-    let categoryFolders = await Promise.all( // eslint-disable-line no-undef
-        categories.map(category => FD.listFolders(category))
+    const categoryFolders = await Promise.all( // eslint-disable-line no-undef
+        categories.map(category => freshdesk.listFolders(category))
     );
-    return [].concat(...categoryFolders);
+    return categoryFolders.reduce((acc, folders) => acc.concat(folders), []);
 };
 
 const PUBLISHED = 2; // in Freshdesk, draft status = 1, and published = 2
 const saveArticles = (folder) => {
-    FD.listArticles(folder)
+    freshdesk.listArticles(folder)
         .then(json => {
             let txArticles = json.reduce((strings, current) => {
                 if (current.status === PUBLISHED) {
@@ -112,7 +118,7 @@ const getArticles = async (folders) => {
 
 const syncSources = async () => {
     let status = 0;
-    status = await FD.listCategories()
+    status = await freshdesk.listCategories()
         .then(json => {
             // save category names for translation
             for (let cat of json.values()) {
@@ -133,7 +139,7 @@ const syncSources = async () => {
         .then(getArticles)
         .catch((e) => {
             process.stdout.write(`Error:${e.message}\n`);
-            return 1;
+            throw e;
         });
     process.exitCode = status;
 };

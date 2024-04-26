@@ -54,9 +54,9 @@ exports.getInputs = async () => {
 
 /**
  * internal function to serialize saving category and folder name translations to avoid Freshdesk rate limit
- * @param  {[type]}  json     [description]
- * @param  {[type]}  resource [description]
- * @param  {[type]}  locale   [description]
+ * @param  {object}  json     [description]
+ * @param  {object}  resource Transifex resource json for either CategoryNames or FolderNames
+ * @param  {string}  locale   Transifex (not Freshdesk) locale code
  * @return {Promise}          [description]
  */
 const serializeNameSave = async (json, resource, locale) => {
@@ -126,7 +126,7 @@ const serializeFolderSave = async (json, locale) => {
  * @return {Promise}        [description]
  */
 exports.localizeFolder = async (folder, locale) => {
-    txPull(TX_PROJECT, folder.slug, locale, {mode: 'default'})
+    txPull(TX_PROJECT, folder.slug, locale, 'default')
         .then(data => {
             serializeFolderSave(data, locale);
         })
@@ -144,7 +144,7 @@ exports.localizeFolder = async (folder, locale) => {
  */
 exports.debugFolder = async (folder, locale) => {
     mkdirp.sync('tmpDebug');
-    txPull(TX_PROJECT, folder.slug, locale, {mode: 'default'})
+    txPull(TX_PROJECT, folder.slug, locale, 'default')
         .then(data => {
             fsPromises.writeFile(
                 `tmpDebug/${folder.slug}_${locale}.json`,
@@ -165,7 +165,7 @@ exports.debugFolder = async (folder, locale) => {
  * @return {Promise}          [description]
  */
 exports.localizeNames = async (resource, locale) => {
-    txPull(TX_PROJECT, resource.slug, locale, {mode: 'default'})
+    txPull(TX_PROJECT, resource.slug, locale, 'default')
         .then(data => {
             serializeNameSave(data, resource, locale);
         })
@@ -186,6 +186,7 @@ const BATCH_SIZE = 2;
  */
 exports.saveItem = async (item, languages, saveFn) => {
     const saveLanguages = languages.filter(l => l !== 'en'); // exclude English from update
+    /** @type {Promise<any>} */
     let batchedPromises = Promise.resolve(); // eslint-disable-line no-undef
     for (let i = 0; i < saveLanguages.length; i += BATCH_SIZE) {
         batchedPromises = batchedPromises
